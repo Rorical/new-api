@@ -235,8 +235,10 @@ func TextHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 
 	if strings.HasPrefix(relayInfo.OriginModelName, "gpt-4o-audio") {
 		service.PostAudioConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
+		// Add detailed chat logging for audio requests
+		service.LogChatInteraction(c, relayInfo, textRequest, nil, usage.(*dto.Usage), 0, int(time.Now().Unix()-relayInfo.StartTime.Unix()))
 	} else {
-		postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
+		postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "", textRequest)
 	}
 	return nil
 }
@@ -335,7 +337,7 @@ func returnPreConsumedQuota(c *gin.Context, relayInfo *relaycommon.RelayInfo, us
 }
 
 func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
-	usage *dto.Usage, preConsumedQuota int, userQuota int, priceData helper.PriceData, extraContent string) {
+	usage *dto.Usage, preConsumedQuota int, userQuota int, priceData helper.PriceData, extraContent string, requestData interface{}) {
 	if usage == nil {
 		usage = &dto.Usage{
 			PromptTokens:     relayInfo.PromptTokens,
@@ -371,28 +373,17 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	dImageRatio := decimal.NewFromFloat(imageRatio)
 	dModelRatio := decimal.NewFromFloat(modelRatio)
 	dGroupRatio := decimal.NewFromFloat(groupRatio)
-	dModelPrice := decimal.NewFromFloat(modelPrice)
 	dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
 
-	ratio := dModelRatio.Mul(dGroupRatio)
+	var quota decimal.Decimal
 
-	// openai web search 工具计费
+	logContent := fmt.Sprintf("模型倍率 %.2f", modelRatio)
+
+	// Web search tool 计费
 	var dWebSearchQuota decimal.Decimal
 	var webSearchPrice float64
-	// response api 格式工具计费
-	if relayInfo.ResponsesUsageInfo != nil {
-		if webSearchTool, exists := relayInfo.ResponsesUsageInfo.BuiltInTools[dto.BuildInToolWebSearchPreview]; exists && webSearchTool.CallCount > 0 {
-			// 计算 web search 调用的配额 (配额 = 价格 * 调用次数 / 1000 * 分组倍率)
-			webSearchPrice = operation_setting.GetWebSearchPricePerThousand(modelName, webSearchTool.SearchContextSize)
-			dWebSearchQuota = decimal.NewFromFloat(webSearchPrice).
-				Mul(decimal.NewFromInt(int64(webSearchTool.CallCount))).
-				Div(decimal.NewFromInt(1000)).Mul(dGroupRatio).Mul(dQuotaPerUnit)
-			extraContent += fmt.Sprintf("Web Search 调用 %d 次，上下文大小 %s，调用花费 %s",
-				webSearchTool.CallCount, webSearchTool.SearchContextSize, dWebSearchQuota.String())
-		}
-	} else if strings.HasSuffix(modelName, "search-preview") {
-		// search-preview 模型不支持 response api
-		searchContextSize := ctx.GetString("chat_completion_web_search_context_size")
+	searchContextSize := ctx.GetString("chat_completion_web_search_context_size")
+	if strings.HasSuffix(relayInfo.OriginModelName, "search-preview") && searchContextSize != "" {
 		if searchContextSize == "" {
 			searchContextSize = "medium"
 		}
@@ -448,59 +439,44 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 		}
 
 		// 减去 Gemini audio tokens
+		var audioTokensWithRatio decimal.Decimal
 		if !dAudioTokens.IsZero() {
-			audioInputPrice = operation_setting.GetGeminiInputAudioPricePerMillionTokens(modelName)
-			if audioInputPrice > 0 {
-				// 重新计算 base tokens
+			if strings.HasPrefix(relayInfo.OriginModelName, "gemini") {
 				baseTokens = baseTokens.Sub(dAudioTokens)
-				audioInputQuota = decimal.NewFromFloat(audioInputPrice).Div(decimal.NewFromInt(1000000)).Mul(dAudioTokens).Mul(dGroupRatio).Mul(dQuotaPerUnit)
-				extraContent += fmt.Sprintf("Audio Input 花费 %s", audioInputQuota.String())
+				audioTokensWithRatio = dAudioTokens.Mul(dModelRatio)
+			} else {
+				// OpenAI 用单独的pricing
+				audioInputPrice = operation_setting.GetGeminiInputAudioPricePerMillionTokens(modelName)
+				if audioInputPrice > 0 {
+					audioInputQuota = decimal.NewFromFloat(audioInputPrice).
+						Div(decimal.NewFromInt(1000000)).Mul(dAudioTokens).Mul(dGroupRatio).Mul(dQuotaPerUnit)
+				}
 			}
 		}
-		promptQuota := baseTokens.Add(cachedTokensWithRatio).Add(imageTokensWithRatio)
 
-		completionQuota := dCompletionTokens.Mul(dCompletionRatio)
-
-		quotaCalculateDecimal = promptQuota.Add(completionQuota).Mul(ratio)
-
-		if !ratio.IsZero() && quotaCalculateDecimal.LessThanOrEqual(decimal.Zero) {
-			quotaCalculateDecimal = decimal.NewFromInt(1)
-		}
+		quotaCalculateDecimal = baseTokens.Mul(dModelRatio).
+			Add(dCompletionTokens.Mul(dCompletionRatio)).
+			Add(cachedTokensWithRatio).
+			Add(imageTokensWithRatio).
+			Add(audioTokensWithRatio).
+			Add(dWebSearchQuota).
+			Add(dClaudeWebSearchQuota).
+			Add(dFileSearchQuota).
+			Add(audioInputQuota).
+			Mul(dGroupRatio).
+			Mul(dQuotaPerUnit)
 	} else {
-		quotaCalculateDecimal = dModelPrice.Mul(dQuotaPerUnit).Mul(dGroupRatio)
-	}
-	// 添加 responses tools call 调用的配额
-	quotaCalculateDecimal = quotaCalculateDecimal.Add(dWebSearchQuota)
-	quotaCalculateDecimal = quotaCalculateDecimal.Add(dFileSearchQuota)
-	// 添加 audio input 独立计费
-	quotaCalculateDecimal = quotaCalculateDecimal.Add(audioInputQuota)
-
-	quota := int(quotaCalculateDecimal.Round(0).IntPart())
-	totalTokens := promptTokens + completionTokens
-
-	var logContent string
-	if !priceData.UsePrice {
-		logContent = fmt.Sprintf("模型倍率 %.2f，补全倍率 %.2f，分组倍率 %.2f", modelRatio, completionRatio, groupRatio)
-	} else {
-		logContent = fmt.Sprintf("模型价格 %.2f，分组倍率 %.2f", modelPrice, groupRatio)
+		quotaCalculateDecimal = decimal.NewFromFloat(priceData.GroupRatioInfo.GroupRatio).
+			Mul(decimal.NewFromFloat(modelPrice)).
+			Mul(dQuotaPerUnit)
 	}
 
-	// record all the consume log even if quota is 0
-	if totalTokens == 0 {
-		// in this case, must be some error happened
-		// we cannot just return, because we may have to return the pre-consumed quota
-		quota = 0
-		logContent += fmt.Sprintf("（可能是上游超时）")
-		common.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, "+
-			"tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, modelName, preConsumedQuota))
-	} else {
-		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, quota)
-		model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
-	}
+	// 如果预消费配额小于 0，说明预先消费的 token 数量不够，需要额外消费
+	quota = quotaCalculateDecimal.Ceil()
 
-	quotaDelta := quota - preConsumedQuota
+	quotaDelta := quota.IntPart() - int64(preConsumedQuota)
 	if quotaDelta != 0 {
-		err := service.PostConsumeQuota(relayInfo, quotaDelta, preConsumedQuota, true)
+		err := service.PostConsumeQuota(relayInfo, int(quotaDelta), preConsumedQuota, true)
 		if err != nil {
 			common.LogError(ctx, "error consuming token remain quota: "+err.Error())
 		}
@@ -559,7 +535,7 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 		CompletionTokens: completionTokens,
 		ModelName:        logModel,
 		TokenName:        tokenName,
-		Quota:            quota,
+		Quota:            int(quota.IntPart()),
 		Content:          logContent,
 		TokenId:          relayInfo.TokenId,
 		UserQuota:        userQuota,
@@ -568,4 +544,7 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 		Group:            relayInfo.UsingGroup,
 		Other:            other,
 	})
+
+	// Add detailed chat logging
+	service.LogChatInteraction(ctx, relayInfo, requestData, nil, usage, int(quota.IntPart()), int(useTimeSeconds))
 }

@@ -26,6 +26,7 @@ import RatioSetting from '../../components/settings/RatioSetting.js';
 import ChatsSetting from '../../components/settings/ChatsSetting.js';
 import DrawingSetting from '../../components/settings/DrawingSetting.js';
 import PaymentSetting from '../../components/settings/PaymentSetting.js';
+import ChatLogsAdmin from '../../components/settings/ChatLogsAdmin.js';
 
 const Setting = () => {
   const { t } = useTranslation();
@@ -134,6 +135,16 @@ const Setting = () => {
       ),
       content: <OtherSetting />,
       itemKey: 'other',
+    });
+    panes.push({
+      tab: (
+        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <MessageSquare size={18} />
+          {t('聊天日志')}
+        </span>
+      ),
+      content: <ChatLogsAdmin />,
+      itemKey: 'chat-logs',
     });
   }
   const onChangeTab = (key) => {

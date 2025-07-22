@@ -175,5 +175,19 @@ func SetApiRouter(router *gin.Engine) {
 			taskRoute.GET("/self", middleware.UserAuth(), controller.GetUserTask)
 			taskRoute.GET("/", middleware.AdminAuth(), controller.GetAllTask)
 		}
+		// 添加详细聊天日志相关的路由
+		apiRouter.GET("/chat-logs", controller.GetChatLogs)
+		apiRouter.GET("/chat-logs/duplicates", controller.GetDuplicatePrompts)
+		apiRouter.GET("/chat-logs/longest", controller.GetLongestConversations)
+
+		// 管理员专用聊天日志路由
+		adminChatLogRouter := apiRouter.Group("/admin/chat-logs")
+		adminChatLogRouter.Use(middleware.AdminAuth())
+		{
+			adminChatLogRouter.GET("/", controller.AdminGetAllChatLogs)
+			adminChatLogRouter.GET("/export", controller.AdminExportChatLogs)
+			adminChatLogRouter.GET("/stats", controller.AdminGetChatLogStats)
+			adminChatLogRouter.DELETE("/", controller.AdminDeleteChatLogs)
+		}
 	}
 }

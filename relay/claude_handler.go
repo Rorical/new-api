@@ -14,6 +14,7 @@ import (
 	"one-api/setting/model_setting"
 	"one-api/types"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -147,6 +148,9 @@ func ClaudeHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 		return newAPIError
 	}
 	service.PostClaudeConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
+
+	// Add detailed chat logging for Claude requests
+	service.LogChatInteraction(c, relayInfo, textRequest, nil, usage.(*dto.Usage), 0, int(time.Now().Unix()-relayInfo.StartTime.Unix()))
 	return nil
 }
 
