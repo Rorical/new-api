@@ -16,8 +16,7 @@ import {
   Tooltip,
   Popconfirm,
   Row,
-  Col,
-  Statistic
+  Col
 } from '@douyinfe/semi-ui';
 import { API } from '../../helpers';
 import { showError, showSuccess, timestamp2string } from '../../helpers';
@@ -355,38 +354,54 @@ const ChatLogsAdmin = () => {
       <Row gutter={16} style={{ marginBottom: '20px' }}>
         <Col span={6}>
           <Card>
-            <Statistic
-              title="总日志数"
-              value={stats.total_logs || 0}
-              prefix={<Database size={16} />}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Database size={16} />
+              <div>
+                <Text type="secondary" size="small">总日志数</Text>
+                <div>
+                  <Text size="large" strong>{stats.total_logs || 0}</Text>
+                </div>
+              </div>
+            </div>
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic
-              title="活跃用户"
-              value={stats.unique_users || 0}
-              prefix={<Users size={16} />}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Users size={16} />
+              <div>
+                <Text type="secondary" size="small">活跃用户</Text>
+                <div>
+                  <Text size="large" strong>{stats.unique_users || 0}</Text>
+                </div>
+              </div>
+            </div>
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic
-              title="多轮对话"
-              value={stats.multiround_conversations || 0}
-              prefix={<MessageSquare size={16} />}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <MessageSquare size={16} />
+              <div>
+                <Text type="secondary" size="small">多轮对话</Text>
+                <div>
+                  <Text size="large" strong>{stats.multiround_conversations || 0}</Text>
+                </div>
+              </div>
+            </div>
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic
-              title="重复提示"
-              value={stats.duplicate_prompts || 0}
-              prefix={<RefreshCw size={16} />}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <RefreshCw size={16} />
+              <div>
+                <Text type="secondary" size="small">重复提示</Text>
+                <div>
+                  <Text size="large" strong>{stats.duplicate_prompts || 0}</Text>
+                </div>
+              </div>
+            </div>
           </Card>
         </Col>
       </Row>
@@ -534,10 +549,32 @@ const ChatLogsAdmin = () => {
         <Row gutter={16}>
           <Col span={12}>
             <Card title="基础统计">
-              <Statistic title="总日志数" value={stats.total_logs || 0} />
-              <Statistic title="活跃用户数" value={stats.unique_users || 0} />
-              <Statistic title="总Token数" value={stats.total_tokens || 0} />
-              <Statistic title="平均对话长度" value={Math.round(stats.avg_conversation_length || 0)} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <Text type="secondary" size="small">总日志数</Text>
+                  <div>
+                    <Text size="large" strong>{stats.total_logs || 0}</Text>
+                  </div>
+                </div>
+                <div>
+                  <Text type="secondary" size="small">活跃用户数</Text>
+                  <div>
+                    <Text size="large" strong>{stats.unique_users || 0}</Text>
+                  </div>
+                </div>
+                <div>
+                  <Text type="secondary" size="small">总Token数</Text>
+                  <div>
+                    <Text size="large" strong>{stats.total_tokens || 0}</Text>
+                  </div>
+                </div>
+                <div>
+                  <Text type="secondary" size="small">平均对话长度</Text>
+                  <div>
+                    <Text size="large" strong>{Math.round(stats.avg_conversation_length || 0)}</Text>
+                  </div>
+                </div>
+              </div>
             </Card>
           </Col>
           <Col span={12}>
