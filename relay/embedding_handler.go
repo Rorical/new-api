@@ -111,6 +111,6 @@ func EmbeddingHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 		return newAPIError
 	}
-	postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
+	postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "", embeddingRequest)
 	return nil
 }

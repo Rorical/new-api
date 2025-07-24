@@ -229,6 +229,6 @@ func GeminiHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 		return openaiErr
 	}
 
-	postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
+	postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "", req)
 	return nil
 }
