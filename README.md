@@ -139,12 +139,59 @@ New API提供了丰富的功能，详细特性请参考[特性说明](https://do
 #### 使用Docker Compose部署（推荐）
 ```shell
 # 下载项目
-git clone https://github.com/Calcium-Ion/new-api.git
+git clone https://github.com/Rorical/new-api.git
 cd new-api
 # 按需编辑docker-compose.yml
 # 启动
 docker-compose up -d
 ```
+
+#### 使用Docker Compose + Nginx HTTPS代理部署（生产环境推荐）
+
+本配置提供了完整的HTTPS代理方案，所有内部服务端口都被隐藏，只通过nginx暴露443端口，并且只响应特定域名的请求。
+
+```shell
+# 下载项目
+git clone https://github.com/Rorical/new-api.git
+cd new-api
+
+# 1. 准备SSL证书
+# 创建ssl目录并放置证书文件
+mkdir -p ssl
+# 将你的SSL证书放入ssl目录：
+# - cert.pem (SSL证书文件)
+# - key.pem (SSL私钥文件)
+
+# 2. 配置域名
+# 编辑nginx.conf文件，将example.com替换为你的实际域名
+# 找到以下行并修改：
+# server_name example.com *.example.com;
+# 改为你的域名，例如：
+# server_name yourdomain.com *.yourdomain.com;
+
+# 3. 启动服务
+docker-compose up -d
+```
+
+**SSL证书获取方式：**
+- **Cloudflare SSL证书**：如果使用Cloudflare代理，可以在Cloudflare仪表板的SSL/TLS -> Origin Server中生成Origin证书
+- **Let's Encrypt**：使用certbot等工具获取免费SSL证书
+- **购买SSL证书**：从证书颁发机构购买商业SSL证书
+
+**安全特性：**
+- ✅ 只暴露443 HTTPS端口，隐藏所有内部服务端口
+- ✅ 严格的域名验证，非指定域名返回404
+- ✅ 完整的SSL/TLS配置，支持TLS 1.2和1.3
+- ✅ 安全HTTP头配置
+- ✅ 请求速率限制
+- ✅ Cloudflare代理优化
+
+**配置说明：**
+- `nginx.conf`: 主要的nginx配置文件
+- `ssl/cert.pem`: SSL证书文件
+- `ssl/key.pem`: SSL私钥文件
+- 默认server块会对所有非匹配域名返回404
+- 支持主域名和所有子域名的通配符匹配
 
 #### 直接使用Docker镜像
 ```shell
@@ -174,6 +221,7 @@ docker run --name new-api -d --restart always -p 3000:3000 -e SQL_DSN="root:1234
 
 ## 相关项目
 - [One API](https://github.com/songquanpeng/one-api)：原版项目
+- [New API](https://github.com/Calcium-Ion/new-api)：上游版本
 - [Midjourney-Proxy](https://github.com/novicezk/midjourney-proxy)：Midjourney接口支持
 - [chatnio](https://github.com/Deeptrain-Community/chatnio)：下一代AI一站式B/C端解决方案
 - [neko-api-key-tool](https://github.com/Calcium-Ion/neko-api-key-tool)：用key查询使用额度

@@ -1,18 +1,37 @@
 version: '3.4'
 
 services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - new-api
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   new-api:
     image: calciumion/new-api:latest
     container_name: new-api
     restart: always
     command: --log-dir /app/logs
-    ports:
-      - "3000:3000"
+    # Remove exposed ports - only accessible through nginx
+    expose:
+      - "3000"
     volumes:
       - ./data:/data
       - ./logs:/app/logs
     environment:
-      - SQL_DSN=root:123456@tcp(mysql:3306)/new-api  # Point to the mysql service
+      - SQL_DSN=root:1270000@tcp(mysql:3306)/new-api  # Point to the mysql service
       - REDIS_CONN_STRING=redis://redis
       - TZ=Asia/Shanghai
       - ERROR_LOG_ENABLED=true # 是否启用错误日志记录
@@ -35,18 +54,22 @@ services:
     image: redis:latest
     container_name: redis
     restart: always
+    # Remove exposed ports - only accessible internally
+    expose:
+      - "6379"
 
   mysql:
     image: mysql:8.2
     container_name: mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: 123456  # Ensure this matches the password in SQL_DSN
+      MYSQL_ROOT_PASSWORD: 1270000  # Ensure this matches the password in SQL_DSN
       MYSQL_DATABASE: new-api
     volumes:
       - mysql_data:/var/lib/mysql
-    # ports:
-    #   - "3306:3306"  # If you want to access MySQL from outside Docker, uncomment
+    # Remove exposed ports - only accessible internally
+    expose:
+      - "3306"
 
 volumes:
   mysql_data:
