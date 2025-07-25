@@ -179,6 +179,29 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 
 	handleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, usage, containStreamUsage)
 
+	// Store accumulated response data in context for detailed logging
+	if responseTextBuilder.Len() > 0 {
+		// Create a simplified response structure for logging
+		streamResponse := &dto.OpenAITextResponse{
+			Id:      responseId,
+			Object:  "chat.completion",
+			Created: createAt,
+			Model:   model,
+			Choices: []dto.OpenAITextResponseChoice{
+				{
+					Index: 0,
+					Message: dto.Message{
+						Role:    "assistant",
+						Content: responseTextBuilder.String(),
+					},
+					FinishReason: "stop",
+				},
+			},
+			Usage: *usage,
+		}
+		c.Set("response_data", streamResponse)
+	}
+
 	return usage, nil
 }
 
@@ -234,6 +257,9 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 		}
 		responseBody = claudeRespStr
 	}
+
+	// Store response data in context for detailed logging
+	c.Set("response_data", &simpleResponse)
 
 	common.IOCopyBytesGracefully(c, resp, responseBody)
 

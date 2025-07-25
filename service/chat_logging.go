@@ -276,6 +276,24 @@ func GetChatLogStats(startTime, endTime int64) (map[string]interface{}, error) {
 	}
 	stats["top_users"] = userStats
 
+	// Most duplicated models by request type
+	type DuplicateModelStat struct {
+		ModelName   string
+		RequestType string
+		Count       int64
+	}
+	var duplicateModelStats []DuplicateModelStat
+	err = query.Select("model_name, request_type, COUNT(*) as count").
+		Where("duplicate_count > 1").
+		Group("model_name, request_type").
+		Order("count DESC").
+		Limit(10).
+		Scan(&duplicateModelStats).Error
+	if err != nil {
+		return nil, err
+	}
+	stats["most_duplicated_models"] = duplicateModelStats
+
 	return stats, nil
 }
 

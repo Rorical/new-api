@@ -546,5 +546,6 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	})
 
 	// Add detailed chat logging
-	service.LogChatInteraction(ctx, relayInfo, requestData, nil, usage, int(quota.IntPart()), int(useTimeSeconds))
+	responseData, _ := ctx.Get("response_data")
+	service.LogChatInteraction(ctx, relayInfo, requestData, responseData, usage, int(quota.IntPart()), int(useTimeSeconds))
 }

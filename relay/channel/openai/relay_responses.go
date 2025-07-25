@@ -32,6 +32,9 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		return nil, types.WithOpenAIError(*responsesResponse.Error, resp.StatusCode)
 	}
 
+	// Store response data in context for detailed logging
+	c.Set("response_data", &responsesResponse)
+
 	// 写入新的 response body
 	common.IOCopyBytesGracefully(c, resp, responseBody)
 
@@ -91,6 +94,27 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 			completionTokens := service.CountTextToken(tempStr, info.UpstreamModelName)
 			usage.CompletionTokens = completionTokens
 		}
+	}
+
+	// Store accumulated response data in context for detailed logging
+	if responseTextBuilder.Len() > 0 {
+		// Create a simplified response structure for logging
+		responsesResponse := &dto.OpenAITextResponse{
+			Object: "responses.completion",
+			Model:  info.UpstreamModelName,
+			Choices: []dto.OpenAITextResponseChoice{
+				{
+					Index: 0,
+					Message: dto.Message{
+						Role:    "assistant",
+						Content: responseTextBuilder.String(),
+					},
+					FinishReason: "stop",
+				},
+			},
+			Usage: *usage,
+		}
+		c.Set("response_data", responsesResponse)
 	}
 
 	return usage, nil
