@@ -105,12 +105,33 @@ func (e *NewAPIError) SetMessage(message string) {
 func (e *NewAPIError) ToOpenAIError() OpenAIError {
 	switch e.ErrorType {
 	case ErrorTypeOpenAIError:
-		return e.RelayError.(OpenAIError)
-	case ErrorTypeClaudeError:
-		claudeError := e.RelayError.(ClaudeError)
+		if e.RelayError != nil {
+			if openAIError, ok := e.RelayError.(OpenAIError); ok {
+				return openAIError
+			}
+		}
+		// Fallback if RelayError is nil or not an OpenAIError
 		return OpenAIError{
 			Message: e.Error(),
-			Type:    claudeError.Type,
+			Type:    string(e.ErrorType),
+			Param:   "",
+			Code:    e.errorCode,
+		}
+	case ErrorTypeClaudeError:
+		if e.RelayError != nil {
+			if claudeError, ok := e.RelayError.(ClaudeError); ok {
+				return OpenAIError{
+					Message: e.Error(),
+					Type:    claudeError.Type,
+					Param:   "",
+					Code:    e.errorCode,
+				}
+			}
+		}
+		// Fallback if RelayError is nil or not a ClaudeError
+		return OpenAIError{
+			Message: e.Error(),
+			Type:    string(e.ErrorType),
 			Param:   "",
 			Code:    e.errorCode,
 		}
@@ -127,13 +148,30 @@ func (e *NewAPIError) ToOpenAIError() OpenAIError {
 func (e *NewAPIError) ToClaudeError() ClaudeError {
 	switch e.ErrorType {
 	case ErrorTypeOpenAIError:
-		openAIError := e.RelayError.(OpenAIError)
+		if e.RelayError != nil {
+			if openAIError, ok := e.RelayError.(OpenAIError); ok {
+				return ClaudeError{
+					Message: e.Error(),
+					Type:    fmt.Sprintf("%v", openAIError.Code),
+				}
+			}
+		}
+		// Fallback if RelayError is nil or not an OpenAIError
 		return ClaudeError{
 			Message: e.Error(),
-			Type:    fmt.Sprintf("%v", openAIError.Code),
+			Type:    string(e.ErrorType),
 		}
 	case ErrorTypeClaudeError:
-		return e.RelayError.(ClaudeError)
+		if e.RelayError != nil {
+			if claudeError, ok := e.RelayError.(ClaudeError); ok {
+				return claudeError
+			}
+		}
+		// Fallback if RelayError is nil or not a ClaudeError
+		return ClaudeError{
+			Message: e.Error(),
+			Type:    string(e.ErrorType),
+		}
 	default:
 		return ClaudeError{
 			Message: e.Error(),

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Layout,
   Card,
@@ -42,7 +42,8 @@ const ChatLogsAdmin = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [filters, setFilters] = useState({});
-  const [searchForm] = Form.useForm();
+  const searchFormRef = useRef();
+  const [searchFormValues, setSearchFormValues] = useState({});
   const [stats, setStats] = useState({});
   const [showStats, setShowStats] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -254,7 +255,10 @@ const ChatLogsAdmin = () => {
   };
 
   const clearFilters = () => {
-    searchForm.reset();
+    if (searchFormRef.current) {
+      searchFormRef.current.reset();
+    }
+    setSearchFormValues({});
     setFilters({});
     setCurrentPage(1);
   };
@@ -409,7 +413,8 @@ const ChatLogsAdmin = () => {
       {/* 搜索表单 */}
       <Card style={{ marginBottom: '20px' }}>
         <Form
-          form={searchForm}
+          values={searchFormValues}
+          getFormApi={(formApi) => (searchFormRef.current = formApi)}
           layout="horizontal"
           onSubmit={handleSearch}
           style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'end' }}
