@@ -20,7 +20,9 @@ services:
       retries: 3
 
   new-api:
-    image: calciumion/new-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: new-api
     restart: always
     command: --log-dir /app/logs
